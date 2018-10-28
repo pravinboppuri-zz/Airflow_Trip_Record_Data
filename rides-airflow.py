@@ -17,11 +17,13 @@ from datetime import datetime, timedelta
 sc= SparkContext.getOrCreate()
 sqlContext = SQLContext(sc)
 
+# sqlContext to read source file
 source_df = sqlContext.read.load('/home/bella/airflow/yellow_tripdata_2017-02.csv',
                                 format='com.databricks.spark.csv',
                                 header='true',
                                  inferSchema='true')
 
+# Creating Dataframes by selecting only few columns for the analysis
 DF1 = source_df.select(source_df['trip_distance'],month(source_df['tpep_dropoff_datetime']).alias('month'),year(source_df['tpep_dropoff_datetime']).alias('year'))
 DF2 = source_df.select(source_df['trip_distance'],month(source_df['tpep_dropoff_datetime']).alias('month'),year(source_df['tpep_dropoff_datetime']).alias('year'),source_df['tpep_dropoff_datetime'])
 
@@ -35,8 +37,11 @@ def monthly_avg():
 
     df_mavg= sqlContext.sql("select * from m_avg where month=1 and year=1")
     return df_mavg
-
+  
+# using pyspark window function to calling rolling average
 def rolling_avg():
+  
+  #function to calculate no: of seconds from no: of days
     days = lambda i: i * 86400
     window_spec = Window.orderBy(func.col("tpep_dropoff_datetime").cast('long')).rangeBetween(-days(45), 0)
     rolling_avg = DF2.withColumn('rolling_avg', func.avg('trip_distance').over(window_spec))
@@ -46,7 +51,7 @@ def rolling_avg():
     df_rolling_avg=sqlContext.sql("select * from r_avg where month=1 and year=2017 limit 10")
     return df_rolling_avg
 
-
+# Writing the spark dataframes into csv's
 def get_averages():
 
     DF_monthly_avg=monthly_avg()
